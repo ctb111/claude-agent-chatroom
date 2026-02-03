@@ -1,0 +1,40 @@
+{
+  "name": "agent-chatroom",
+  "version": "1.0.0",
+  "description": "Real-time chatroom for Claude Code parallel agents",
+  "main": "start.js",
+  "bin": {
+    "agent-chatroom": "./start.js"
+  },
+  "scripts": {
+    "start": "node start.js",
+    "server": "node server.js",
+    "ui": "node ui.js",
+    "mcp": "node chatroom-mcp.js",
+    "install-mcp": "node install.js",
+    "uninstall-mcp": "node install.js --uninstall"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "agents",
+    "chatroom",
+    "mcp",
+    "parallel-agents",
+    "coordination"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "blessed": "^0.1.81",
+    "ws": "^8.19.0"
+  }
+}
