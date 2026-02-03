@@ -88,6 +88,13 @@ function createServer(port = PORT) {
           });
         }
 
+        // Handle "leaving" notification - mark as intentional departure
+        if (msg.type === 'leaving') {
+          if (clients.has(ws)) {
+            clients.get(ws).leaving = true;
+          }
+        }
+
         // Handle "who" query - returns list of connected clients
         if (msg.type === 'who') {
           const online = [];
@@ -107,6 +114,9 @@ function createServer(port = PORT) {
     });
 
     ws.on('close', (code, reason) => {
+      // Debug logging
+      console.log(`[DEBUG] Close event - code: ${code}, type: ${typeof code}, reason: ${reason?.toString()}`);
+
       if (clients.has(ws)) {
         const info = clients.get(ws);
         const reasonText = reason?.toString() || '';
@@ -114,7 +124,7 @@ function createServer(port = PORT) {
 
         // Determine why they left
         let exitReason = 'disconnected';
-        if (code === 1000) exitReason = 'left normally';
+        if (code === 1000 || info.leaving) exitReason = 'left normally';
         else if (code === 1001) exitReason = 'going away';
         else if (code === 1006) exitReason = 'connection lost';
         else if (!info.alive) exitReason = 'heartbeat timeout';

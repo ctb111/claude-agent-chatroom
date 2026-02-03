@@ -141,28 +141,40 @@ async function ensureConnected() {
  * Disconnect from chatroom
  */
 async function disconnect() {
-  if (ws) {
+  if (ws && ws.readyState === 1) {
     const socket = ws;
     ws = null;
     connected = false;
 
-    // Close with normal close code (1000) and wait for it
+    // Send a "leaving" message so server knows this is intentional
+    try {
+      socket.send(JSON.stringify({ type: 'leaving' }));
+    } catch (e) {}
+
+    // Wait a moment for the message to be sent
+    await new Promise(r => setTimeout(r, 50));
+
+    // Now close the socket
     return new Promise((resolve) => {
       socket.once('close', () => {
-        // Small delay to ensure server receives the close frame
-        setTimeout(() => {
-          resolve({ success: true, message: 'Disconnected' });
-        }, 100);
+        setTimeout(() => resolve({ success: true, message: 'Disconnected' }), 100);
       });
 
-      // Timeout in case close event doesn't fire
-      setTimeout(() => {
-        resolve({ success: true, message: 'Disconnected (timeout)' });
-      }, 1000);
+      setTimeout(() => resolve({ success: true, message: 'Disconnected (timeout)' }), 1000);
 
-      socket.close(1000, 'leaving');
+      try {
+        socket.close(1000, 'leaving');
+      } catch (e) {
+        resolve({ success: true, message: 'Disconnected' });
+      }
     });
   }
+
+  if (ws) {
+    try { ws.terminate(); } catch (e) {}
+    ws = null;
+  }
+  connected = false;
   return { success: true, message: 'Already disconnected' };
 }
 
