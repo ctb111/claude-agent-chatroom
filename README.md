@@ -4,8 +4,6 @@ A Claude Code plugin that enables real-time communication between parallel agent
 
 When Claude Code spawns multiple agents to work on a task, they automatically coordinate through a shared chatroom. You can observe agent activity and send guidance in real-time through a terminal UI.
 
-![Agent Chatroom Demo](https://placeholder-for-demo-gif.com)
-
 ## Why Use This?
 
 When working with multiple Claude Code agents:
@@ -340,4 +338,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Credits
 
-Built for the Claude Code ecosystem by the community.
+Built by [ctb111](https://github.com/ctb111) for the Claude Code ecosystem.
