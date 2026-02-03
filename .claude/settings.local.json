@@ -1,11 +1,12 @@
 {
   "hooks": {
-    "SubagentStart": [
+    "PreToolUse": [
       {
+        "matcher": "Task",
         "hooks": [
           {
             "type": "command",
-            "command": "bash /Users/balanuser/.claude/plugins/my-marketplace/plugins/agent-chatroom/hooks/scripts/subagent-start.sh",
+            "command": "bash /Users/balanuser/.claude/plugins/my-marketplace/plugins/agent-chatroom/hooks/scripts/task-pretool.sh",
             "timeout": 15,
             "statusMessage": "Starting chatroom..."
           }

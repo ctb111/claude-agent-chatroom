@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$(dirname "$0")")")}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-/Users/balanuser/.claude/plugins/my-marketplace/plugins/agent-chatroom}"
 PORT="${CHATROOM_PORT:-3030}"
 
 # Read hook input from stdin
