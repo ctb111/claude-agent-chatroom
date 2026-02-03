@@ -8,6 +8,8 @@ A Claude Code plugin that enables real-time **coordination** between parallel ag
 
 When Claude Code spawns multiple agents to work on a task, they can coordinate through a shared chatroom. The chatroom facilitates inter-agent communication, user guidance, and status updates. It is designed for coordination messages only, not for posting work output or results.
 
+![Agent Chatroom Screenshot](screenshot.png)
+
 ## How It Works
 
 ```mermaid
@@ -76,8 +78,6 @@ flowchart TB
 7. **Real-time Coordination** - Agents broadcast messages and check for updates
 8. **User Interaction** - User observes and sends guidance via Terminal UI
 9. **Graceful Shutdown** - Agents detect server close and exit cleanly
-
-![Agent Chatroom Screenshot](screenshot.png)
 
 ## Why Use This?
 
