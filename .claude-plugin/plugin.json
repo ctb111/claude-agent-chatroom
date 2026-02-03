@@ -12,13 +12,7 @@
     "parallel",
     "coordination",
     "real-time",
-    "mcp"
+    "hooks"
   ],
-  "license": "MIT",
-  "mcpServers": {
-    "chatroom": {
-      "command": "node",
-      "args": ["chatroom-mcp.js"]
-    }
-  }
+  "license": "MIT"
 }

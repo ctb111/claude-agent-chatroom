@@ -30,23 +30,49 @@ Agent Chatroom solves all of this:
 ```bash
 # Clone the repository
 git clone https://github.com/ctb111/claude-agent-chatroom.git
+cd claude-agent-chatroom
 
 # Install dependencies
-cd agent-chatroom
 npm install
-
-# Install as Claude Code plugin
-claude /plugins install $(pwd)
-
-# Enable the plugin
-claude /plugins enable agent-chatroom
 ```
 
-Or install directly from GitHub:
-```bash
-claude /plugins install https://github.com/ctb111/claude-agent-chatroom
-claude /plugins enable agent-chatroom
+### Configure Claude Code
+
+**1. Add SubagentStart hook** to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /path/to/claude-agent-chatroom/hooks/scripts/subagent-start.sh",
+            "timeout": 15,
+            "statusMessage": "Starting chatroom..."
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
+
+**2. Add MCP server** to `~/.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "chatroom": {
+      "command": "node",
+      "args": ["/path/to/claude-agent-chatroom/chatroom-mcp.js"]
+    }
+  }
+}
+```
+
+Replace `/path/to/claude-agent-chatroom` with your actual installation path.
 
 ### Verify Installation
 
@@ -75,10 +101,9 @@ claude /plugins list
 │         │                                                         │
 │         ▼                                                         │
 │  ┌─────────────────────────────────────────────────────────┐     │
-│  │ PreToolUse Hook fires automatically                      │     │
+│  │ SubagentStart Hook fires automatically                   │     │
 │  │  1. Checks if chatroom server running                    │     │
 │  │  2. Starts server + opens Terminal UI (if needed)        │     │
-│  │  3. Injects chatroom instructions into agent prompt      │     │
 │  └─────────────────────────────────────────────────────────┘     │
 │         │                                                         │
 │         ▼                                                         │
@@ -240,15 +265,15 @@ cd /path/to/agent-chatroom && npm run ui
 
 ### Agents don't have chatroom tools
 
-1. Verify plugin is enabled: `claude /plugins list`
-2. Restart Claude Code after enabling
+1. Verify `~/.mcp.json` contains the chatroom MCP server
+2. Restart Claude Code to reload MCP servers
 3. Check with `claude --debug` to see loaded MCP servers
 
 ### Agents don't use the chatroom
 
-1. Restart Claude Code (hooks load at startup)
-2. Run `claude --debug` and check for hook execution
-3. Verify hook file exists: `hooks/hooks.json`
+1. Verify SubagentStart hook is in `~/.claude/settings.json`
+2. Restart Claude Code (hooks load at startup)
+3. Check hook script exists and is executable
 
 ### "Connection refused" errors
 
@@ -274,12 +299,14 @@ CHATROOM_PORT=3031 npm start
 ## Architecture
 
 ```
-agent-chatroom/
-├── manifest.json           # Plugin manifest (MCP server config)
+claude-agent-chatroom/
+├── .claude-plugin/
+│   └── plugin.json         # Plugin metadata
+├── .claude/
+│   └── settings.local.json # Plugin hooks configuration
 ├── hooks/
-│   ├── hooks.json          # PreToolUse hook definition
 │   └── scripts/
-│       └── task-pretool.sh # Hook script (starts server, injects instructions)
+│       └── subagent-start.sh # Hook script (starts server + UI)
 ├── chatroom-mcp.js         # MCP server (provides tools to agents)
 ├── server.js               # WebSocket server (message broker)
 ├── ui.js                   # Terminal UI (blessed-based)
@@ -292,7 +319,7 @@ agent-chatroom/
 
 | Component | Role |
 |-----------|------|
-| **Hook** | Intercepts Task tool, starts server if needed, injects instructions |
+| **SubagentStart Hook** | Starts chatroom server and UI when first agent spawns |
 | **MCP Server** | Provides chatroom_* tools to agents via Model Context Protocol |
 | **WebSocket Server** | Routes messages between agents and UI |
 | **Terminal UI** | Displays messages, accepts user input |
