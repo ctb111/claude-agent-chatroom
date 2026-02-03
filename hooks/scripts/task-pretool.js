@@ -4,7 +4,7 @@
  *
  * This hook:
  * 1. Checks if chatroom server is running on port 3030
- * 2. Starts server + UI if not running
+ * 2. Spawns UI terminal (which starts server) if not running
  * 3. Injects chatroom instructions into the subagent prompt
  */
 
@@ -12,7 +12,6 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 const net = require('net');
 
-// Self-locate: __dirname is always the directory containing this script
 const SCRIPTS_DIR = __dirname;
 const PLUGIN_ROOT = path.resolve(SCRIPTS_DIR, '..', '..');
 const PORT = process.env.CHATROOM_PORT || 3030;
@@ -28,7 +27,7 @@ async function main(inputJson) {
     const hookInput = JSON.parse(inputJson);
     const originalPrompt = hookInput.tool_input?.prompt || '';
 
-    // Start server if not running
+    // Start server/UI if not running
     await ensureServerRunning();
 
     // Chatroom instructions to inject
@@ -38,19 +37,25 @@ async function main(inputJson) {
 
 You have access to a real-time chatroom for coordinating with other agents and receiving guidance from the user.
 
-**Required:** Join the chatroom at the start of your task:
+**Required at start:**
 - Use \`chatroom_join\` with your agent name and type
 
 **During your work:**
 - Use \`chatroom_broadcast\` to share important findings (category: "found", "claiming", "completed", "blocked")
-- Use \`chatroom_check\` periodically (every few major steps) to see messages from other agents or guidance from the user
+- Use \`chatroom_check\` periodically to see messages from other agents or guidance from the user
 - If you need input, use \`chatroom_ask\` to ask a question and wait for an answer
 
-**Before finishing:**
-- Broadcast your final findings/status with \`chatroom_broadcast\`
-- Use \`chatroom_leave\` when done
+**IMPORTANT - Staying alive:**
+After completing your main task, DO NOT exit immediately. Instead:
+1. Broadcast your completion status
+2. Enter a monitoring loop: call \`chatroom_check\` every few seconds
+3. Watch for messages from the user - they may give you new instructions
+4. Only use \`chatroom_leave\` and exit when:
+   - The user explicitly tells you to stop/exit
+   - You receive a "shutdown" message
+   - The chatroom connection fails (server closed)
 
-The user can see all agent messages and may send guidance. Check the chatroom between major steps to stay coordinated.`;
+The user controls the chatroom terminal. When they close it, you'll detect the connection failure and can exit gracefully.`;
 
     // Output hook response with modified prompt
     const output = {
@@ -77,17 +82,9 @@ function isServerRunning() {
   return new Promise(resolve => {
     const socket = new net.Socket();
     socket.setTimeout(1000);
-    socket.on('connect', () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.on('timeout', () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.on('error', () => {
-      resolve(false);
-    });
+    socket.on('connect', () => { socket.destroy(); resolve(true); });
+    socket.on('timeout', () => { socket.destroy(); resolve(false); });
+    socket.on('error', () => resolve(false));
     socket.connect(PORT, 'localhost');
   });
 }
@@ -97,28 +94,24 @@ async function ensureServerRunning() {
     return;
   }
 
-  // Start WebSocket server in background
-  const serverPath = path.join(PLUGIN_ROOT, 'server.js');
-  const server = spawn('node', [serverPath], {
-    detached: true,
-    stdio: 'ignore'
-  });
-  server.unref();
-
-  // Spawn terminal with UI
+  // Spawn terminal with UI - UI owns and starts the server
   try {
     const spawnTerminalPath = path.join(PLUGIN_ROOT, 'spawn-terminal.js');
     const uiPath = path.join(PLUGIN_ROOT, 'ui.js');
     execSync(`node "${spawnTerminalPath}" "${uiPath}"`, { stdio: 'ignore' });
   } catch (e) {
-    // UI spawn is optional
+    // If UI spawn fails, fall back to starting server directly
+    const serverPath = path.join(PLUGIN_ROOT, 'server.js');
+    const server = spawn('node', [serverPath], {
+      detached: true,
+      stdio: 'ignore'
+    });
+    server.unref();
   }
 
   // Wait for server to be ready (max 5 seconds)
   for (let i = 0; i < 50; i++) {
-    if (await isServerRunning()) {
-      return;
-    }
+    if (await isServerRunning()) return;
     await new Promise(r => setTimeout(r, 100));
   }
 }
