@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="banner.png" alt="Agent Chatroom Banner" width="600">
+</p>
+
 # Agent Chatroom
 
 A Claude Code plugin that enables real-time **coordination** between parallel agents and users.
