@@ -11,10 +11,13 @@
 const { spawn, execSync } = require('child_process');
 const path = require('path');
 const net = require('net');
+const fs = require('fs');
+const os = require('os');
 
 const SCRIPTS_DIR = __dirname;
 const PLUGIN_ROOT = path.resolve(SCRIPTS_DIR, '..', '..');
 const PORT = process.env.CHATROOM_PORT || 3030;
+const LOCK_FILE = path.join(os.tmpdir(), 'chatroom-spawn.lock');
 
 // Read hook input from stdin
 let input = '';
@@ -94,7 +97,20 @@ async function ensureServerRunning() {
     return;
   }
 
-  // Spawn terminal with UI - UI owns and starts the server
+  // Try to acquire lock (prevents race condition with parallel agents)
+  let lockFd;
+  try {
+    lockFd = fs.openSync(LOCK_FILE, 'wx');
+  } catch (e) {
+    // Lock exists - another process is spawning, just wait for server
+    for (let i = 0; i < 50; i++) {
+      if (await isServerRunning()) return;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    return;
+  }
+
+  // We have the lock - spawn terminal with UI
   try {
     const spawnTerminalPath = path.join(PLUGIN_ROOT, 'spawn-terminal.js');
     const uiPath = path.join(PLUGIN_ROOT, 'ui.js');
@@ -111,7 +127,13 @@ async function ensureServerRunning() {
 
   // Wait for server to be ready (max 5 seconds)
   for (let i = 0; i < 50; i++) {
-    if (await isServerRunning()) return;
+    if (await isServerRunning()) break;
     await new Promise(r => setTimeout(r, 100));
   }
+
+  // Release lock
+  try {
+    fs.closeSync(lockFd);
+    fs.unlinkSync(LOCK_FILE);
+  } catch (e) {}
 }
