@@ -109,53 +109,62 @@ Replace `/path/to/claude-agent-chatroom` with your actual installation path.
 
 ## How It Works
 
+```mermaid
+flowchart TB
+    subgraph USER["👤 User"]
+        Request["'Analyze auth, database, and API in parallel'"]
+    end
+
+    subgraph CC["🤖 Claude Code"]
+        Task["Task Tool Called"]
+        Hook["⚡ PreToolUse Hook"]
+
+        subgraph Agents["Parallel Agents"]
+            A1["🔐 Agent 1<br/>auth"]
+            A2["🗄️ Agent 2<br/>database"]
+            A3["🔌 Agent 3<br/>api"]
+        end
+
+        MCP["📡 Chatroom MCP<br/><i>Provides chatroom_* tools</i>"]
+    end
+
+    subgraph Server["🖥️ Chatroom Server :3030"]
+        WS["WebSocket Hub<br/><i>Routes messages between all clients</i>"]
+    end
+
+    subgraph Outputs["Real-time Communication"]
+        UI["🖵 Terminal UI<br/><i>You watch & send messages</i>"]
+        Broadcast["📢 Agent Messages<br/><i>Coordination & status updates</i>"]
+    end
+
+    Request --> Task
+    Task --> Hook
+
+    Hook -->|"1. Starts server if needed<br/>2. Opens Terminal UI<br/>3. Injects chatroom instructions"| Agents
+
+    A1 & A2 & A3 --> MCP
+    MCP <-->|"WebSocket"| WS
+    WS <--> UI
+    WS <--> Broadcast
+
+    style USER fill:#e1f5fe
+    style CC fill:#fff3e0
+    style Server fill:#f3e5f5
+    style Outputs fill:#e8f5e9
+    style Hook fill:#ffecb3
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│  You: "Analyze auth, database, and API modules in parallel"     │
-└──────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                        Claude Code                                │
-│                                                                   │
-│  Spawns Task (first agent)                                       │
-│         │                                                         │
-│         ▼                                                         │
-│  ┌─────────────────────────────────────────────────────────┐     │
-│  │ PreToolUse Hook fires automatically                      │     │
-│  │  1. Checks if chatroom server running                    │     │
-│  │  2. Starts server + opens Terminal UI (if needed)        │     │
-│  │  3. Injects chatroom instructions into agent prompt      │     │
-│  └─────────────────────────────────────────────────────────┘     │
-│         │                                                         │
-│         ▼                                                         │
-│  ┌───────────┐  ┌───────────┐  ┌───────────┐                    │
-│  │  Agent 1  │  │  Agent 2  │  │  Agent 3  │                    │
-│  │   auth    │  │  database │  │    api    │                    │
-│  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘                    │
-│        │              │              │                           │
-│        └──────────────┼──────────────┘                           │
-│                       │                                           │
-│                       ▼                                           │
-│              ┌─────────────────┐                                 │
-│              │  Chatroom MCP   │◄── Agents use chatroom tools    │
-│              └────────┬────────┘                                 │
-│                       │                                           │
-└───────────────────────┼───────────────────────────────────────────┘
-                        │ WebSocket
-                        ▼
-               ┌─────────────────┐
-               │ Chatroom Server │
-               │   (port 3030)   │
-               └────────┬────────┘
-                        │
-           ┌────────────┴────────────┐
-           ▼                         ▼
-    ┌─────────────┐          ┌─────────────┐
-    │ Terminal UI │          │   Agents    │
-    │  (for you)  │          │  broadcast  │
-    └─────────────┘          └─────────────┘
-```
+
+### Flow Description
+
+| Step | Component | What Happens |
+|------|-----------|--------------|
+| 1️⃣ | **You** | Request a multi-agent task |
+| 2️⃣ | **Claude Code** | Calls Task tool to spawn agents |
+| 3️⃣ | **PreToolUse Hook** | Intercepts, starts server/UI, injects instructions |
+| 4️⃣ | **Agents** | Spawn with chatroom capabilities |
+| 5️⃣ | **Chatroom MCP** | Provides `chatroom_join`, `chatroom_broadcast`, `chatroom_check` |
+| 6️⃣ | **WebSocket Server** | Routes all messages in real-time |
+| 7️⃣ | **Terminal UI** | You observe and guide agents |
 
 ### What Happens Automatically
 
