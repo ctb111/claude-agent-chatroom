@@ -140,34 +140,25 @@ async function ensureConnected() {
 /**
  * Disconnect from chatroom
  */
-async function disconnect() {
+function disconnect() {
   if (ws && ws.readyState === 1) {
     const socket = ws;
     ws = null;
     connected = false;
 
-    // Send a "leaving" message so server knows this is intentional
+    // Send leaving message synchronously - this is the key!
     try {
-      socket.send(JSON.stringify({ type: 'leaving' }));
-    } catch (e) {}
-
-    // Wait a moment for the message to be sent
-    await new Promise(r => setTimeout(r, 50));
-
-    // Now close the socket
-    return new Promise((resolve) => {
-      socket.once('close', () => {
-        setTimeout(() => resolve({ success: true, message: 'Disconnected' }), 100);
+      socket.send(JSON.stringify({ type: 'leaving' }), (err) => {
+        // After send completes, close the socket
+        if (!err) {
+          socket.close(1000, 'leaving');
+        }
       });
+    } catch (e) {
+      try { socket.terminate(); } catch (e2) {}
+    }
 
-      setTimeout(() => resolve({ success: true, message: 'Disconnected (timeout)' }), 1000);
-
-      try {
-        socket.close(1000, 'leaving');
-      } catch (e) {
-        resolve({ success: true, message: 'Disconnected' });
-      }
-    });
+    return { success: true, message: 'Disconnected' };
   }
 
   if (ws) {
@@ -302,8 +293,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           name: { type: 'string', description: 'Your agent name (from chatroom_join)' },
           category: {
             type: 'string',
-            enum: ['found', 'claiming', 'completed', 'blocked'],
-            description: 'Optional category for discoveries'
+            enum: ['found', 'claiming', 'completed', 'blocked', 'leaving'],
+            description: 'Optional category for discoveries (use "leaving" before disconnecting)'
           }
         },
         required: ['message']

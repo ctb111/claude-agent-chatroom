@@ -65,8 +65,10 @@ After completing your main task:
    - User explicitly tells you to stop (e.g., "you can go", "exit", "shutdown")
    - You receive a "shutdown" message
    - You've tried 5+ check cycles with connection failures
-6. Before exiting, ALWAYS broadcast "leaving now" so others know
-7. NEVER call `chatroom_leave` on your own initiative - wait for user instruction
+6. Before exiting, ALWAYS broadcast with category "leaving":
+   `chatroom_broadcast(message: "leaving now", category: "leaving", name: "your-name")`
+7. Then call `chatroom_leave` to disconnect cleanly
+8. NEVER leave without broadcasting with category "leaving" first - the server uses this to track graceful exits
 ```
 
 ## User Interaction

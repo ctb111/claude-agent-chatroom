@@ -78,6 +78,11 @@ function createServer(port = PORT) {
 
         // Handle discovery broadcasts
         if (msg.type === 'discovery') {
+          // If category is 'leaving', mark client as leaving (for graceful exit detection)
+          if (msg.category === 'leaving' && clients.has(ws)) {
+            clients.get(ws).leaving = true;
+          }
+
           broadcast(wss, clients, {
             type: 'discovery',
             from: msg.from || clientInfo.name,  // Use sender's name if provided
@@ -114,9 +119,6 @@ function createServer(port = PORT) {
     });
 
     ws.on('close', (code, reason) => {
-      // Debug logging
-      console.log(`[DEBUG] Close event - code: ${code}, type: ${typeof code}, reason: ${reason?.toString()}`);
-
       if (clients.has(ws)) {
         const info = clients.get(ws);
         const reasonText = reason?.toString() || '';
