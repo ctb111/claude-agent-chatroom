@@ -22,18 +22,19 @@ let agentName = null;
 let agentType = null;
 let connected = false;
 let messages = [];
+let lastConnectedClients = []; // Cache of who's online
 const pendingQuestions = new Map();
+const MAX_RECONNECT_ATTEMPTS = 3;
 
 /**
  * Connect to chatroom
  */
-async function connect(name, type) {
+async function connect(name, type, isReconnect = false) {
   // Always update the current agent's identity
-  const previousName = agentName;
-  agentName = name;
-  agentType = type || 'agent';
+  agentName = name || agentName;
+  agentType = type || agentType || 'agent';
 
-  if (connected) {
+  if (connected && ws && ws.readyState === 1) {
     // Re-register with new name
     ws.send(JSON.stringify({
       type: 'register',
@@ -43,10 +44,18 @@ async function connect(name, type) {
     return { success: true, message: `Joined as ${agentName}` };
   }
 
+  // Close any existing dead connection
+  if (ws) {
+    try { ws.terminate(); } catch (e) {}
+    ws = null;
+    connected = false;
+  }
+
   return new Promise((resolve) => {
     ws = new WebSocket(SERVER_URL);
 
     const timeout = setTimeout(() => {
+      connected = false;
       resolve({ success: false, error: 'Connection timeout' });
     }, 5000);
 
@@ -58,12 +67,20 @@ async function connect(name, type) {
         name: agentName,
         agentType: agentType
       }));
-      resolve({ success: true, message: `Connected as ${agentName}` });
+      const msg = isReconnect ? `Reconnected as ${agentName}` : `Connected as ${agentName}`;
+      resolve({ success: true, message: msg });
     });
 
     ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString());
+
+        // Handle "who" response
+        if (msg.type === 'who_response') {
+          lastConnectedClients = msg.clients || [];
+          return;
+        }
+
         messages.push(msg);
         if (messages.length > 100) messages.shift();
 
@@ -83,15 +100,41 @@ async function connect(name, type) {
       } catch (e) {}
     });
 
-    ws.on('close', () => {
+    ws.on('close', (code) => {
       connected = false;
     });
 
     ws.on('error', (err) => {
       clearTimeout(timeout);
+      connected = false;
       resolve({ success: false, error: err.message });
     });
   });
+}
+
+/**
+ * Try to reconnect if disconnected
+ */
+async function ensureConnected() {
+  if (connected && ws && ws.readyState === 1) {
+    return { success: true, wasReconnect: false };
+  }
+
+  if (!agentName) {
+    return { success: false, error: 'Not initialized - call chatroom_join first' };
+  }
+
+  // Try to reconnect
+  for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
+    const result = await connect(agentName, agentType, true);
+    if (result.success) {
+      return { success: true, wasReconnect: true, attempt };
+    }
+    // Wait a bit before retry
+    await new Promise(r => setTimeout(r, 500 * attempt));
+  }
+
+  return { success: false, error: 'Failed to reconnect after ' + MAX_RECONNECT_ATTEMPTS + ' attempts' };
 }
 
 /**
@@ -148,9 +191,12 @@ async function ask(question, timeoutMs = 30000) {
 }
 
 /**
- * Check messages
+ * Check messages (with auto-reconnect)
  */
-function check(count = 10, since = 0) {
+async function check(count = 10, since = 0) {
+  // Try to ensure we're connected
+  const connResult = await ensureConnected();
+
   const filtered = since > 0
     ? messages.filter(m => m.timestamp > since)
     : messages.slice(-count);
@@ -158,6 +204,7 @@ function check(count = 10, since = 0) {
   return {
     success: true,
     connected,
+    reconnected: connResult.wasReconnect || false,
     messages: filtered.map(m => ({
       from: m.from || 'system',
       type: m.type,
@@ -165,6 +212,28 @@ function check(count = 10, since = 0) {
       category: m.category,
       timestamp: m.timestamp
     }))
+  };
+}
+
+/**
+ * Get list of connected clients
+ */
+async function who() {
+  const connResult = await ensureConnected();
+  if (!connected) {
+    return { success: false, error: 'Not connected', clients: [] };
+  }
+
+  // Request who's online
+  ws.send(JSON.stringify({ type: 'who' }));
+
+  // Wait a bit for response
+  await new Promise(r => setTimeout(r, 100));
+
+  return {
+    success: true,
+    clients: lastConnectedClients,
+    myName: agentName
   };
 }
 
@@ -225,7 +294,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: 'chatroom_check',
-      description: 'Check recent messages in the chatroom (non-blocking). Call this periodically to see guidance from user or findings from other agents.',
+      description: 'Check recent messages in the chatroom (non-blocking). Call this periodically to see guidance from user or findings from other agents. Auto-reconnects if connection was lost.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -233,6 +302,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           since: { type: 'number', description: 'Only messages after this timestamp' }
         }
       }
+    },
+    {
+      name: 'chatroom_who',
+      description: 'Get list of currently connected clients in the chatroom',
+      inputSchema: { type: 'object', properties: {} }
     }
   ]
 }));
@@ -255,7 +329,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return { content: [{ type: 'text', text: JSON.stringify(await ask(args.question, args.timeout)) }] };
 
     case 'chatroom_check':
-      return { content: [{ type: 'text', text: JSON.stringify(check(args.count, args.since)) }] };
+      return { content: [{ type: 'text', text: JSON.stringify(await check(args.count, args.since)) }] };
+
+    case 'chatroom_who':
+      return { content: [{ type: 'text', text: JSON.stringify(await who()) }] };
 
     default:
       return { content: [{ type: 'text', text: JSON.stringify({ error: 'Unknown tool' }) }] };

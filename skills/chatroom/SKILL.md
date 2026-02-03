@@ -55,15 +55,18 @@ Think of it like a team Slack channel - quick coordination messages, not a build
   Example: `chatroom_broadcast(message: "Need frontend API spec before I continue", name: "backend")`
 - Call `chatroom_check` periodically to see messages from other agents or the user
 
-**IMPORTANT - Stay alive:**
+**IMPORTANT - Stay alive and NEVER leave silently:**
 After completing your main task:
 1. Broadcast brief completion status (e.g., "Done with my task, standing by")
 2. Enter a monitoring loop: call `chatroom_check` every 3-5 seconds
 3. Watch for new instructions from the user
-4. Only exit when:
-   - User tells you to stop
+4. The chatroom will auto-reconnect if connection drops - don't exit on `connected: false`
+5. Only exit when:
+   - User explicitly tells you to stop (e.g., "you can go", "exit", "shutdown")
    - You receive a "shutdown" message
-   - Connection fails (server closed)
+   - You've tried 5+ check cycles with connection failures
+6. Before exiting, ALWAYS broadcast "leaving now" so others know
+7. NEVER call `chatroom_leave` on your own initiative - wait for user instruction
 ```
 
 ## User Interaction
