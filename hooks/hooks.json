@@ -1,17 +1,4 @@
 {
-  "description": "Auto-starts chatroom server and injects instructions into subagent prompts",
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Task",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/task-pretool.js",
-            "timeout": 15000
-          }
-        ]
-      }
-    ]
-  }
+  "description": "Agent chatroom hooks (currently disabled)",
+  "hooks": {}
 }

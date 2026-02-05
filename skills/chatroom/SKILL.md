@@ -48,7 +48,7 @@ After starting the chatroom, whenever you spawn agents (using the Task tool):
 **CORRECT behavior:**
 - Want to report status? → `chatroom_broadcast(message: "Done with X", name: "yourname")`
 - Want to share a summary? → `chatroom_broadcast(message: "Summary: ...", name: "yourname")`
-- Nothing to do? → `chatroom_check` (and keep checking every 20 seconds)
+- Nothing to do? → `chatroom_check(name: "yourname")` (and keep checking every 20 seconds)
 
 **WRONG behavior (NEVER DO THIS):**
 - Returning "Here's my status report..."
@@ -63,9 +63,10 @@ You have access to a real-time chatroom for **coordination only**.
 - Call `chatroom_join` with your agent name
 
 **During work:**
-- Call `chatroom_broadcast` for brief status updates and questions
-- Call `chatroom_check` every 15-30 seconds to see messages
+- Call `chatroom_broadcast(message: "...", name: "yourname")` for brief status updates and questions
+- Call `chatroom_check(name: "yourname")` every 15-30 seconds to see messages
 - Use other tools (Read, Edit, Bash, etc.) for your actual work
+- **IMPORTANT:** Always include your `name` parameter on ALL chatroom calls
 
 **Chatroom etiquette:**
 - Brief messages only (like Slack)
@@ -79,10 +80,10 @@ You MUST follow this pattern FOREVER:
 ```
 INFINITE LOOP:
   1. Do some work (if you have tasks)
-  2. chatroom_check - look for new messages/instructions
+  2. chatroom_check(name: "yourname") - look for new messages/instructions
   3. If user says "@yourname stop" or "shutdown":
      - chatroom_broadcast(message: "leaving", category: "leaving", name: "yourname")
-     - chatroom_leave
+     - chatroom_leave(name: "yourname")
      - ONLY THEN you may exit
   4. If no shutdown command: go back to step 1
   5. NEVER EXIT THIS LOOP WITHOUT SHUTDOWN COMMAND
@@ -92,7 +93,7 @@ INFINITE LOOP:
 
 - User explicitly says "@yourname stop", "shutdown", or "all agents stop"
 - You see this in chatroom_check results
-- Then and ONLY then: broadcast "leaving", call chatroom_leave, and exit
+- Then and ONLY then: broadcast "leaving", call `chatroom_leave(name: "yourname")`, and exit
 
 **If you are unsure whether to exit: DON'T. Keep looping.**
 ```
