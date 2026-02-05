@@ -113,11 +113,11 @@ const header = blessed.box({
   style: { border: { fg: 'cyan' } }
 });
 
-// Message log
+// Message log (left side, 75% width)
 const messageLog = blessed.log({
   top: 3,
   left: 0,
-  width: '100%',
+  width: '75%',
   height: '100%-6',
   tags: true,
   border: { type: 'line' },
@@ -139,6 +139,21 @@ const messageLog = blessed.log({
   }
 });
 
+// Participant panel (right side, 25% width)
+const participantBox = blessed.box({
+  top: 3,
+  right: 0,
+  width: '25%',
+  height: '100%-6',
+  label: ' Participants ',
+  tags: true,
+  border: { type: 'line' },
+  style: {
+    border: { fg: 'green' },
+    label: { fg: 'green', bold: true }
+  }
+});
+
 // Input box
 const inputBox = blessed.textbox({
   bottom: 0,
@@ -152,6 +167,7 @@ const inputBox = blessed.textbox({
 
 screen.append(header);
 screen.append(messageLog);
+screen.append(participantBox);
 screen.append(inputBox);
 
 // Visual focus indicator
@@ -177,6 +193,43 @@ function updateStatus(isConnected) {
     ? '{green-fg}Connected{/green-fg}'
     : '{red-fg}Disconnected{/red-fg}';
   header.setContent(` {cyan-fg}{bold}Agent Chatroom{/bold}{/cyan-fg} | ${status} | Tab:focus | PgUp/Dn:scroll | Ctrl+C:exit`);
+  screen.render();
+}
+
+/**
+ * Format status indicator for a participant
+ */
+function formatStatusIndicator(status) {
+  switch (status) {
+    case 'idle':
+      return '{green-fg}[IDLE]{/green-fg}';
+    case 'busy':
+      return '{blue-fg}[BUSY]{/blue-fg}';
+    case 'observer':
+      return '{gray-fg}[    ]{/gray-fg}';
+    default:
+      return '{gray-fg}[????]{/gray-fg}';
+  }
+}
+
+/**
+ * Update participant panel with current list
+ */
+function updateParticipants(participants) {
+  const lines = [];
+  for (const p of participants) {
+    const status = formatStatusIndicator(p.status);
+    const color = COLORS[p.type] || 'white';
+    // Truncate long names
+    const name = p.name.length > 10 ? p.name.substring(0, 9) + '.' : p.name;
+    lines.push(` ${status} {${color}-fg}${name}{/}`);
+    // Show task on next line if busy
+    if (p.status === 'busy' && p.task) {
+      const task = p.task.length > 15 ? p.task.substring(0, 14) + '.' : p.task;
+      lines.push(`   {gray-fg}${task}{/}`);
+    }
+  }
+  participantBox.setContent(lines.join('\n'));
   screen.render();
 }
 
@@ -215,7 +268,12 @@ function connect() {
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data.toString());
-      addMessage(msg);
+      // Handle participant updates separately
+      if (msg.type === 'participants_update') {
+        updateParticipants(msg.participants);
+      } else {
+        addMessage(msg);
+      }
     } catch (e) {}
   });
 

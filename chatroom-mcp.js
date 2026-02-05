@@ -239,6 +239,28 @@ function broadcast(message, category, senderName) {
 }
 
 /**
+ * Update agent status (busy/idle)
+ */
+function updateStatus(name, status, task) {
+  if (!name) {
+    return { success: false, error: 'Name is required' };
+  }
+
+  const conn = connections.get(name);
+  if (!conn || !conn.connected || !conn.ws || conn.ws.readyState !== 1) {
+    return { success: false, error: `${name} is not connected` };
+  }
+
+  conn.ws.send(JSON.stringify({
+    type: 'status_update',
+    status: status || 'idle',
+    task: task || null
+  }));
+
+  return { success: true, message: `Status updated to ${status}${task ? ': ' + task : ''}` };
+}
+
+/**
  * Ask a question and wait for answer (from a specific agent)
  */
 async function ask(name, question, timeoutMs = 30000) {
@@ -413,6 +435,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
         required: ['name']
       }
+    },
+    {
+      name: 'chatroom_status',
+      description: 'Update your status in the chatroom. Call with status "busy" when starting work, "idle" when done.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Your agent name (from chatroom_join)' },
+          status: {
+            type: 'string',
+            enum: ['busy', 'idle'],
+            description: 'Your current status: "busy" when working, "idle" when available'
+          },
+          task: { type: 'string', description: 'Optional: what you are working on (only used when status is "busy")' }
+        },
+        required: ['name', 'status']
+      }
     }
   ]
 }));
@@ -439,6 +478,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     case 'chatroom_who':
       return { content: [{ type: 'text', text: JSON.stringify(await who(args.name)) }] };
+
+    case 'chatroom_status':
+      return { content: [{ type: 'text', text: JSON.stringify(updateStatus(args.name, args.status, args.task)) }] };
 
     default:
       return { content: [{ type: 'text', text: JSON.stringify({ error: 'Unknown tool' }) }] };

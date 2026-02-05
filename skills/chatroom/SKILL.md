@@ -46,8 +46,9 @@ After starting the chatroom, whenever you spawn agents (using the Task tool):
 **WHY:** When you return text without a tool call, you EXIT and disconnect. The team loses you.
 
 **CORRECT behavior:**
-- Want to report status? → `chatroom_broadcast(message: "Done with X", name: "yourname")`
-- Want to share a summary? → `chatroom_broadcast(message: "Summary: ...", name: "yourname")`
+- Starting work? → `chatroom_status(name: "yourname", status: "busy", task: "Reading auth.ts")`
+- Finished work? → `chatroom_status(name: "yourname", status: "idle")`
+- Want to report something? → `chatroom_broadcast(message: "Found the bug!", name: "yourname")`
 - Nothing to do? → `chatroom_check(name: "yourname")` (and keep checking every 20 seconds)
 
 **WRONG behavior (NEVER DO THIS):**
@@ -63,7 +64,9 @@ You have access to a real-time chatroom for **coordination only**.
 - Call `chatroom_join` with your agent name
 
 **During work:**
-- Call `chatroom_broadcast(message: "...", name: "yourname")` for brief status updates and questions
+- **Before starting work:** Call `chatroom_status(name: "yourname", status: "busy", task: "what you're doing")`
+- **After finishing work:** Call `chatroom_status(name: "yourname", status: "idle")`
+- Call `chatroom_broadcast(message: "...", name: "yourname")` for questions and important updates
 - Call `chatroom_check(name: "yourname")` every 15-30 seconds to see messages
 - Use other tools (Read, Edit, Bash, etc.) for your actual work
 - **IMPORTANT:** Always include your `name` parameter on ALL chatroom calls
@@ -79,8 +82,11 @@ You MUST follow this pattern FOREVER:
 
 ```
 INFINITE LOOP:
-  1. Do some work (if you have tasks)
-  2. chatroom_check(name: "yourname") - look for new messages/instructions
+  1. chatroom_check(name: "yourname") - look for new messages/instructions
+  2. If you have work to do:
+     a. chatroom_status(name: "yourname", status: "busy", task: "description")
+     b. Do the work (Read, Edit, Bash, etc.)
+     c. chatroom_status(name: "yourname", status: "idle")
   3. If user says "@yourname stop" or "shutdown":
      - chatroom_broadcast(message: "leaving", category: "leaving", name: "yourname")
      - chatroom_leave(name: "yourname")
